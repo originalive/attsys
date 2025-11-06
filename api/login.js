@@ -1,182 +1,109 @@
-// api/index.js - Vercel Serverless Function
+// api/login.js
 const fs = require('fs').promises;
 const path = require('path');
 
-// Path to data files
+// Vercel provides a temporary directory `/tmp` which is the only writable location.
 const DATA_DIR = '/tmp';
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
-const ATTENDANCE_FILE = path.join(DATA_DIR, 'attendance.json');
+const USERS_FILE_PATH = path.join(DATA_DIR, 'users.json');
+const ATTENDANCE_FILE_PATH = path.join(DATA_DIR, 'attendance.json');
 
-// Default users data
-const defaultUsers = {
-    "admin": { password: "admin123", role: "admin", name: "Admin User" },
-    "john": { password: "john123", role: "user", name: "John Doe" },
-    "jane": { password: "jane123", role: "user", name: "Jane Smith" },
-    "bob": { password: "bob123", role: "user", name: "Bob Johnson" },
-    "alice": { password: "alice123", role: "user", name: "Alice Williams" }
-};
+// --- Helper Functions to manage data in /tmp ---
 
-// Initialize data files
-async function initializeData() {
+// This function reads the user data. If it doesn't exist in /tmp,
+// it copies it from your project's `login.json` file.
+async function getUsers() {
     try {
-        await fs.access(USERS_FILE);
+        // Check if the file already exists in the writable directory
+        await fs.access(USERS_FILE_PATH);
     } catch {
-        await fs.writeFile(USERS_FILE, JSON.stringify(defaultUsers, null, 2));
+        // If not, read the source file from your project...
+        const sourcePath = path.resolve('./login.json');
+        const sourceData = await fs.readFile(sourcePath, 'utf8');
+        // ...and write it to the /tmp directory.
+        await fs.writeFile(USERS_FILE_PATH, sourceData);
     }
-    
-    try {
-        await fs.access(ATTENDANCE_FILE);
-    } catch {
-        await fs.writeFile(ATTENDANCE_FILE, JSON.stringify({}, null, 2));
-    }
+    // Now, read and return the data from /tmp
+    const data = await fs.readFile(USERS_FILE_PATH, 'utf8');
+    return JSON.parse(data);
 }
 
-// Read users
-async function readUsers() {
+// This function manages the attendance data, creating an empty file if needed.
+async function getAttendance() {
     try {
-        const data = await fs.readFile(USERS_FILE, 'utf8');
-        return JSON.parse(data);
+        await fs.access(ATTENDANCE_FILE_PATH);
     } catch {
-        return defaultUsers;
+        // If the attendance file doesn't exist, create it with an empty object.
+        await fs.writeFile(ATTENDANCE_FILE_PATH, JSON.stringify({}));
     }
+    const data = await fs.readFile(ATTENDANCE_FILE_PATH, 'utf8');
+    return JSON.parse(data);
 }
 
-// Read attendance
-async function readAttendance() {
-    try {
-        const data = await fs.readFile(ATTENDANCE_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch {
-        return {};
-    }
+// This function saves the updated attendance data back to the /tmp file.
+async function saveAttendance(data) {
+    await fs.writeFile(ATTENDANCE_FILE_PATH, JSON.stringify(data, null, 2));
 }
 
-// Write attendance
-async function writeAttendance(data) {
-    await fs.writeFile(ATTENDANCE_FILE, JSON.stringify(data, null, 2));
-}
 
-// CORS headers
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// --- Main API Handler ---
 
-// Main handler
 module.exports = async (req, res) => {
-    // Handle CORS preflight
+    // Set CORS headers to allow your frontend to call this API
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle pre-flight CORS requests
     if (req.method === 'OPTIONS') {
-        res.status(200).json({ message: 'OK' });
-        return;
+        return res.status(204).end();
     }
 
-    // Set CORS headers
-    Object.entries(corsHeaders).forEach(([key, value]) => {
-        res.setHeader(key, value);
-    });
-
-    await initializeData();
-
-    const { method, url } = req;
-    const urlPath = url.split('?')[0];
-
     try {
-        // Login endpoint
-        if (method === 'POST' && urlPath === '/api/login') {
+        // Route requests based on the URL path and HTTP method
+        if (req.url.startsWith('/api/login') && req.method === 'POST') {
+            // --- LOGIN LOGIC ---
             const { username, password } = req.body;
-            const users = await readUsers();
-            
-            if (users[username] && users[username].password === password) {
+            if (!username || !password) {
+                return res.status(400).json({ success: false, message: 'Username and password are required.' });
+            }
+
+            const users = await getUsers();
+            const user = users[username];
+
+            if (user && user.password === password) {
+                // Successful login
                 return res.status(200).json({
                     success: true,
-                    user: {
-                        username,
-                        role: users[username].role,
-                        name: users[username].name
-                    }
+                    user: { username, role: user.role, name: user.name }
                 });
+            } else {
+                // Failed login
+                return res.status(401).json({ success: false, message: 'Invalid username or password.' });
             }
-            
-            return res.status(401).json({
-                success: false,
-                message: "Invalid username or password"
-            });
-        }
-
-        // Get all attendance records
-        if (method === 'GET' && urlPath === '/api/attendance') {
-            const attendance = await readAttendance();
-            return res.status(200).json({ success: true, data: attendance });
-        }
-
-        // Mark attendance (user or admin)
-        if (method === 'POST' && urlPath === '/api/attendance') {
-            const { key, status } = req.body;
-            
-            if (!key || !status) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Missing key or status"
-                });
+        } else if (req.url.startsWith('/api/attendance')) {
+            // --- ATTENDANCE LOGIC ---
+            if (req.method === 'GET') {
+                // Get all attendance records
+                const attendanceData = await getAttendance();
+                return res.status(200).json({ success: true, data: attendanceData });
+            } else if (req.method === 'POST') {
+                // Update an attendance record
+                const { key, status } = req.body;
+                 if (!key || !status) {
+                    return res.status(400).json({ success: false, message: 'Record key and status are required.' });
+                }
+                const attendanceData = await getAttendance();
+                attendanceData[key] = status; // Add or update the record
+                await saveAttendance(attendanceData);
+                return res.status(200).json({ success: true, message: 'Attendance updated successfully.' });
             }
-            
-            const attendance = await readAttendance();
-            attendance[key] = status;
-            await writeAttendance(attendance);
-            
-            return res.status(200).json({
-                success: true,
-                message: "Attendance updated successfully"
-            });
         }
-
-        // Update attendance status (admin only)
-        if (method === 'PUT' && urlPath === '/api/attendance') {
-            const { key, status } = req.body;
-            
-            if (!key || !status) {
-                return res.status(400).json({
-                    success: false,
-                    message: "Missing key or status"
-                });
-            }
-            
-            const attendance = await readAttendance();
-            attendance[key] = status;
-            await writeAttendance(attendance);
-            
-            return res.status(200).json({
-                success: true,
-                message: "Attendance status changed successfully"
-            });
-        }
-
-        // Get all users (for admin)
-        if (method === 'GET' && urlPath === '/api/users') {
-            const users = await readUsers();
-            // Remove passwords from response
-            const sanitizedUsers = {};
-            for (let username in users) {
-                sanitizedUsers[username] = {
-                    role: users[username].role,
-                    name: users[username].name
-                };
-            }
-            return res.status(200).json({ success: true, users: sanitizedUsers });
-        }
-
-        // Default 404
-        return res.status(404).json({
-            success: false,
-            message: "Endpoint not found"
-        });
+        
+        // If no route is matched, return a 404
+        return res.status(404).json({ success: false, message: 'API endpoint not found.' });
 
     } catch (error) {
-        console.error('Server error:', error);
-        return res.status(500).json({
-            success: false,
-            message: "Internal server error"
-        });
+        console.error('API Error:', error);
+        return res.status(500).json({ success: false, message: 'An internal server error occurred.' });
     }
 };
