@@ -3,7 +3,6 @@ const fs = require('fs').promises;
 const path = require('path');
 
 // This function reads the user data from your project's `login.json` file.
-// Since user data doesn't change, we don't need to copy it to /tmp.
 async function getUsers() {
     const sourcePath = path.resolve('./login.json');
     const sourceData = await fs.readFile(sourcePath, 'utf8');
