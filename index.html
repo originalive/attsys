@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Management System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Login Page -->
+        <div id="loginPage">
+            <div class="login-box">
+                <h1>🎯</h1>
+                <h1>Welcome Back!</h1>
+                <p>Please log in to manage your attendance.</p>
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="e.g., john">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="••••••••••">
+                </div>
+                <div id="loginError" class="error-msg hidden"></div>
+                <button onclick="login()">Login</button>
+            </div>
+        </div>
+
+        <!-- User Dashboard -->
+        <div id="userDashboard" class="dashboard hidden">
+            <div class="dashboard-header">
+                <h1 id="welcomeMsg"></h1>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            <div class="card">
+                <h2>Today's Status</h2>
+                <p><strong>Date:</strong> <span id="currentDate"></span></p>
+                <p><strong>Status:</strong> <span id="attendanceStatus"></span></p>
+            </div>
+            <div id="userMessage" class="hidden"></div>
+            <button id="markAttendanceBtn" onclick="markAttendance()">✓ Mark My Attendance</button>
+        </div>
+
+        <!-- Admin Dashboard -->
+        <div id="adminDashboard" class="dashboard hidden">
+            <div class="dashboard-header">
+                <h1>👨‍💼 Admin Dashboard</h1>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+            
+            <div class="card">
+                <h2>Manage Attendance</h2>
+                <div class="filters">
+                    <div class="form-group">
+                        <label for="filterEmployee">Filter by Employee</label>
+                        <select id="filterEmployee" onchange="filterAttendance()">
+                            <option value="">All Employees</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterDate">Filter by Date</label>
+                        <input type="date" id="filterDate" onchange="filterAttendance()">
+                    </div>
+                    <div class="form-group">
+                        <label for="exportMonth">Select Month for Report</label>
+                        <input type="month" id="exportMonth">
+                    </div>
+                </div>
+                 <div class="report-actions">
+                    <button onclick="displayMonthlyReport()">📄 View Monthly Report</button>
+                    <button onclick="exportMonthlyCSV()">📊 Export as CSV</button>
+                </div>
+            </div>
+            
+            <!-- Removed old report container from here -->
+            <div id="attendanceTable" class="table-container"></div>
+        </div>
+    </div>
+
+    <!-- Full-screen Report Overlay (acts as a new page) -->
+    <div id="reportOverlay" class="hidden">
+        <div class="report-content">
+            <button class="close-btn" onclick="closeReportView()">×</button>
+            <div id="reportDisplayArea">
+                <!-- Monthly report table will be injected here by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
