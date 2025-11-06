@@ -1,5 +1,5 @@
 // API Base URL - Update this with your Vercel deployment URL
-const API_BASE_URL = 'https://your-app.vercel.app/api';
+const API_BASE_URL = '/api';
 
 // Master JSON with users (for reference only, authentication happens on server)
 const users = {
@@ -378,4 +378,5 @@ function logout() {
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
     // No auto-load, wait for login
+
 });
