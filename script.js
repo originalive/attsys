@@ -2,10 +2,9 @@
 const API_BASE_URL = '/api';
 
 // --- Global State ---
-// These variables will hold the application's state after login.
 let currentUser = null;
 let attendanceData = {};
-let allUsers = {}; // We'll fetch this for the admin dashboard
+let allUsers = {}; // We'll store the list of users for the admin dashboard here
 
 // --- API Communication Functions ---
 
@@ -56,8 +55,8 @@ async function login() {
         
         document.getElementById('loginPage').classList.add('hidden');
         if (currentUser.role === 'admin') {
-            // For simplicity, we'll just hardcode the user list for the admin view
-            // In a real app, you'd have an API endpoint like /api/users
+            // For simplicity, we hardcode the user list for the admin view.
+            // In a real app, this might come from another API endpoint.
             allUsers = {
                 "john": { "role": "user", "name": "John Doe" },
                 "jane": { "role": "user", "name": "Jane Smith" },
@@ -111,8 +110,8 @@ async function markAttendance() {
     
     const result = await updateAttendance(key, 'present');
     if (result.success) {
-        attendanceData[key] = 'present'; // Update local state
-        renderUserStatus(); // Re-render the UI
+        attendanceData[key] = 'present';
+        renderUserStatus();
         showUserMessage('✓ Attendance marked successfully!', 'success');
     } else {
         showUserMessage('Failed to mark attendance.', 'error');
@@ -127,7 +126,7 @@ function showAdminDashboard() {
 
 function populateEmployeeFilter() {
     const select = document.getElementById('filterEmployee');
-    select.innerHTML = '<option value="">All Employees</option>'; // Reset
+    select.innerHTML = '<option value="">All Employees</option>';
     for (const username in allUsers) {
         const option = document.createElement('option');
         option.value = username;
@@ -143,7 +142,6 @@ function renderAdminTable() {
     let rowsHtml = '';
     const records = [];
 
-    // Create a list of all possible records for the last 30 days
     for (const username in allUsers) {
         if (filterEmployee && filterEmployee !== username) continue;
 
@@ -164,7 +162,6 @@ function renderAdminTable() {
         }
     }
     
-    // Sort by date descending
     records.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     records.forEach(record => {
@@ -195,11 +192,91 @@ function renderAdminTable() {
 async function changeStatus(key, status) {
     const result = await updateAttendance(key, status);
     if (result.success) {
-        attendanceData[key] = status; // Update local state
-        renderAdminTable(); // Re-render the table
+        attendanceData[key] = status;
+        renderAdminTable();
     } else {
         alert('Failed to update status.');
     }
+}
+
+// --- Restored Report and Export Functions ---
+
+function displayMonthlyReport() {
+    const monthInput = document.getElementById('exportMonth').value;
+    if (!monthInput) {
+        alert('Please select a month to view the report');
+        return;
+    }
+    const [year, month] = monthInput.split('-');
+    const daysInMonth = new Date(year, month, 0).getDate();
+    let html = `<div class="table-container"><h2>Monthly Report for ${year}-${month}</h2><table><thead><tr><th>Employee</th>`;
+    for (let day = 1; day <= daysInMonth; day++) {
+        html += `<th>${day}</th>`;
+    }
+    html += '<th>Present</th><th>Absent</th></tr></thead><tbody>';
+    for (let username in allUsers) {
+        let presentCount = 0;
+        html += `<tr><td>${allUsers[username].name}</td>`;
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const key = `${username}_${dateStr}`;
+            if (attendanceData[key] === 'present') {
+                html += '<td class="present">P</td>';
+                presentCount++;
+            } else {
+                html += '<td class="absent">A</td>';
+            }
+        }
+        const absentCount = daysInMonth - presentCount;
+        html += `<td class="present">${presentCount}</td><td class="absent">${absentCount}</td></tr>`;
+    }
+    html += '</tbody></table></div>';
+    document.getElementById('reportDisplayArea').innerHTML = html;
+    document.getElementById('reportOverlay').classList.remove('hidden');
+}
+
+function closeReportView() {
+    document.getElementById('reportOverlay').classList.add('hidden');
+    document.getElementById('reportDisplayArea').innerHTML = '';
+}
+
+function exportMonthlyCSV() {
+    const monthInput = document.getElementById('exportMonth').value;
+    if (!monthInput) {
+        alert('Please select a month to export');
+        return;
+    }
+    const [year, month] = monthInput.split('-');
+    const daysInMonth = new Date(year, month, 0).getDate();
+    let csv = 'Employee,';
+    for (let day = 1; day <= daysInMonth; day++) {
+        csv += `${day},`;
+    }
+    csv += 'Total Present,Total Absent\n';
+    for (let username in allUsers) {
+        let row = allUsers[username].name + ',';
+        let presentCount = 0;
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const key = `${username}_${dateStr}`;
+            if (attendanceData[key] === 'present') {
+                row += 'P,';
+                presentCount++;
+            } else {
+                row += 'A,';
+            }
+        }
+        const absentCount = daysInMonth - presentCount;
+        row += `${presentCount},${absentCount}\n`;
+        csv += row;
+    }
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance_${year}-${month}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
 }
 
 function logout() {
@@ -213,4 +290,29 @@ function logout() {
     document.getElementById('password').value = '';
 }
 
-// --- Util
+// --- Utility Functions ---
+
+function showError(message) {
+    const errorDiv = document.getElementById('loginError');
+    errorDiv.textContent = message;
+    errorDiv.classList.remove('hidden');
+    setTimeout(() => errorDiv.classList.add('hidden'), 3000);
+}
+
+function showUserMessage(message, type) {
+    const msgDiv = document.getElementById('userMessage');
+    msgDiv.className = type === 'success' ? 'success-msg' : 'error-msg';
+    msgDiv.textContent = message;
+    msgDiv.classList.remove('hidden');
+    setTimeout(() => msgDiv.classList.add('hidden'), 3000);
+}
+
+// --- Make functions globally accessible from the HTML ---
+window.login = login;
+window.logout = logout;
+window.markAttendance = markAttendance;
+window.filterAttendance = renderAdminTable;
+window.changeStatus = changeStatus;
+window.displayMonthlyReport = displayMonthlyReport;
+window.exportMonthlyCSV = exportMonthlyCSV;
+window.closeReportView = closeReportView;
