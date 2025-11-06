@@ -1,0 +1,7 @@
+{
+  "admin": { "password": "admin123", "role": "admin", "name": "Admin User" },
+  "john": { "password": "john123", "role": "user", "name": "John Doe" },
+  "jane": { "password": "jane123", "role": "user", "name": "Jane Smith" },
+  "bob": { "password": "bob123", "role": "user", "name": "Bob Johnson" },
+  "alice": { "password": "alice123", "role": "user", "name": "Alice Williams" }
+}
