@@ -1,0 +1,22 @@
+{
+  "name": "attendance-management-system",
+  "version": "1.0.0",
+  "description": "Attendance Management System with Node.js API",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node api/index.js"
+  },
+  "keywords": [
+    "attendance",
+    "management",
+    "nodejs",
+    "api"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.x"
+  }
+}
